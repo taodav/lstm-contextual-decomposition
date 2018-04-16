@@ -24,7 +24,7 @@ clf, vectorizer = logit_clf(inputs, outputs)
 model = LSTMSentiment(args)
 model.cuda()
 model.load_state_dict(torch.load(
-    "results/best_snapshot_devacc_81.76605504587155_devloss_0.5821605920791626_iter_4000_model.pt"))
+    "results/best_snapshot.pt"))
 
 class CD:
     def __init__(self, model, inputs, clf, data, vectorizer):

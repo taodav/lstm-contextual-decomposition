@@ -90,13 +90,11 @@ def train_model(train_iter, valid_iter, inputs, outputs, args):
                     best_dev_acc = dev_acc
                     snapshot_prefix = os.path.join(
                         args["save_path"], 'best_snapshot')
-                    snapshot_path = snapshot_prefix + \
-                        '_devacc_{}_devloss_{}_iter_{}_model.pt'.format(
-                            dev_acc, dev_loss.data[0], iterations)
+                    snapshot_path = snapshot_prefix + '.pt'
 
                     # save model, delete previous 'best_snapshot' files
                     torch.save(model.state_dict(), snapshot_path)
-                if iterations == 10000:
+                if iterations == 20000:
                     return model
                 #           print( os.getcwd() )
                 #           print( os.listdir() )
