@@ -16,6 +16,7 @@ import time
 
 class LSTMSentiment(nn.Module):
 
+    # def __init__(self, args):
     def __init__(self, args):
         super(LSTMSentiment, self).__init__()
         self.hidden_dim = args["d_hidden"]

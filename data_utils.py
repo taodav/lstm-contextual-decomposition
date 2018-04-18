@@ -1,17 +1,19 @@
 import os
 import torch
 from torchtext import data, datasets
+from argparse import ArgumentParser
 
 def get_args():
-    EPOCHS = 20
+    EPOCHS = 12
     USE_GPU = torch.cuda.is_available()
     EMBEDDING_DIM = 300
-    HIDDEN_DIM = 150
+    HIDDEN_DIM = 128
     BATCH_SIZE = 50
 
     config = {
         "epochs": EPOCHS,
         "batch_size": BATCH_SIZE,
+        "gpu": 0,
         "d_embed": EMBEDDING_DIM,
         "d_hidden": HIDDEN_DIM,
         'word_vectors': "glove.6B.300d",
@@ -62,13 +64,13 @@ def load_sst(args):
             text.vocab.load_vectors(args["word_vectors"])
             makedirs(os.path.dirname(args["vector_cache"]))
             torch.save(text.vocab.vectors, args["vector_cache"])
-        labels.build_vocab(train_v)
+    labels.build_vocab(train_v)
 
     # Next we build our datasets without all subtrees
-    train, valid, test = datasets.SST.splits(text, labels, fine_grained=False, train_subtrees=False,
-                                             filter_pred=lambda ex: ex.label != 'neutral')
+    # train, valid, test = datasets.SST.splits(text, labels, fine_grained=False, train_subtrees=False,
+                                            #  filter_pred=lambda ex: ex.label != 'neutral')
 
     train_iter, valid_iter, test_iter = data.BucketIterator.splits(
-        (train, valid, test), batch_size=1, device=0)
+        (train_v, valid_v, test_v), batch_size=args["batch_size"], device=args["gpu"])
 
-    return text, labels, train_iter, valid_iter, train, valid
+    return text, labels, train_iter, valid_iter, train_v, valid_v

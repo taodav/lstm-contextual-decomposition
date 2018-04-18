@@ -1,8 +1,9 @@
 import numpy as np
 import os
 import pandas as pd
+import glob
+
 import torch
-from argparse import ArgumentParser
 import torch.nn as nn
 import torch.nn.functional as F
 import torch.optim as O
@@ -20,7 +21,7 @@ def get_accuracy(truth, pred):
     return right / len(truth)
 
 
-def train_model(train_iter, valid_iter, inputs, outputs, args):
+def train_model(train_iter, valid_iter, valid_sst, inputs, outputs, args):
     model = LSTMSentiment(args)
     if args["word_vectors"]:
         model.embed.weight.data = inputs.vocab.vectors
@@ -31,6 +32,7 @@ def train_model(train_iter, valid_iter, inputs, outputs, args):
     iterations = 0
     start = time.time()
     best_dev_acc = -1
+    train_iter.repeat = False
     all_break = False
     header = '  Time Epoch Iteration Progress    (%Epoch)   Loss   Dev/Loss     Accuracy  Dev/Accuracy'
     dev_log_template = ' '.join(
@@ -63,23 +65,16 @@ def train_model(train_iter, valid_iter, inputs, outputs, args):
             loss.backward()
             opt.step()
 
-        #       if iterations % args["save_every"] == 0:
-        #         snapshot_prefix = os.path.join(args["save_path"], 'snapshot')
-        #         snapshot_path = snapshot_prefix + '_acc_{:.4f}_loss_{:.6f}_iter_{}_model.pt'.format(train_acc, loss.data[0], iterations)
-
-        #         torch.save(model, snapshot_path)
-
             if iterations % args["dev_every"] == 0:
                 model.eval()
                 valid_iter.init_epoch()
-                dev_acc = 0
                 n_dev_correct, dev_loss = 0, 0
                 for dev_batch_idx, dev_batch in enumerate(valid_iter):
                     answer = model(dev_batch)
                     n_dev_correct += (torch.max(answer, 1)[1].view(
                         dev_batch.label.size()).data == dev_batch.label.data).sum()
                     dev_loss = criterion(answer, dev_batch.label)
-                dev_acc = 100. * n_dev_correct / len(valid_iter)
+                dev_acc = 100. * n_dev_correct / len(valid_sst)
 
                 print(dev_log_template.format(time.time() - start,
                                               epoch, iterations, 1 +
@@ -94,11 +89,7 @@ def train_model(train_iter, valid_iter, inputs, outputs, args):
 
                     # save model, delete previous 'best_snapshot' files
                     torch.save(model.state_dict(), snapshot_path)
-                if iterations == 20000:
-                    return model
-                #           print( os.getcwd() )
-                #           print( os.listdir() )
-                #           files.download(snapshot_path)
+
 
             elif iterations % args["log_every"] == 0:
                 # print progress message

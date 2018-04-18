@@ -12,21 +12,6 @@ import random
 from scipy.special import expit as sigmoid
 
 
-args = get_args()
-
-inputs, outputs, train_iter, valid_iter, train, valid = load_sst(args)
-
-args["n_embed"] = len(inputs.vocab)
-args["d_out"] = len(outputs.vocab)
-
-clf, vectorizer = logit_clf(inputs, outputs)
-
-model = LSTMSentiment(args)
-model.cuda()
-model.load_state_dict(torch.load(
-    "results/best_snapshot.pt"))
-
-
 def Lsig3(y1, y2, y3):
   y1_cont = 0.5 * (sigmoid(y1 + y3) - sigmoid(y3) +
                    sigmoid(y1 + y2 + y3) - sigmoid(y2 + y3))
@@ -51,10 +36,11 @@ def Ltanh2(y1, y2):
   return y1_cont, y2_cont
 
 class CD:
-    def __init__(self, model, inputs, clf, data):
+    def __init__(self, model, inputs, clf, data, vectorizer):
         self.model = model
         self.inputs = inputs
         self.data = data
+        self.vectorizer = vectorizer
         self.generate_data(data)
         self.generate_dissenting(clf)
         self.clf = clf
@@ -71,44 +57,52 @@ class CD:
 
     def generate_data(self, data):
         valid_data = []
-        for d in self.data.items():
+        print("generating data")
+        for d in data.items():
+            df = d[1].text
             text = []
-            for i in d[1].text:
-                text.append(inputs.vocab.itos[int(i)])
-            valid_data.append(text)
+            # this is every batch
+            # for i in range(df.shape[1]):
+            #     text = []
+            #     for j in range(df[:, i].shape[0]):
+            #         if int(df[j, i]) != 1:
+            #             text.append(self.inputs.vocab.itos[int(df[j, i])])
+            #     valid_data.append(text)
+            for i in df:
+                text.append(self.inputs.vocab.itos[int(i)])
         self.valid_data = valid_data
-    #we want to return the CD score W*hc[T]
 
+    #we want to return the CD score W*hc[T]
     def context_decomp(self, batch, start, stop):
 
         # these are the weights and bias learnt for the gates for each layer during LSTM
-        weights = model.lstm.state_dict()
+        weights = self.model.lstm.state_dict()
 
         # refer variable names to paper and http://pytorch.org/docs/master/nn.html
         # split equally into 4 (150,300)
-        Wi, Wf, Wg, Wo = split(weights['weight_ih_l0'], 4, 0)
-        Vi, Vf, Vg, Vo = split(weights['weight_hh_l0'], 4, 0)
-        #split equally into 4 (150,)
-        bi, bf, bg, bo = split(weights['bias_ih_l0'].cpu(
+        Wi, Wf, Wg, Wo = np.split(weights['weight_ih_l0'], 4, 0)
+        Vi, Vf, Vg, Vo = np.split(weights['weight_hh_l0'], 4, 0)
+        # split equally into 4 (150,)
+        bi, bf, bg, bo = np.split(weights['bias_ih_l0'].cpu(
         ).numpy() + weights['bias_hh_l0'].cpu().numpy(), 4)
 
         #word embedding model as specified in LSTMSentiment
-        word_embedding = model.embed(batch.text)[:, 0].data
+        word_embedding = self.model.embed(batch.text)[:, 0].data
         #T = number of time steps
         T = word_embedding.size(0)
 
         #initialize beta, beta_c, gamma, gamma_c all to zeeros
         #contributions of given phrase / elements outside of given phrase made to cell state
-        Bc = zeros((T, model.hidden_dim))
-        Gc = zeros((T, model.hidden_dim))
+        Bc = np.zeros((T, self.model.hidden_dim))
+        Gc = np.zeros((T, self.model.hidden_dim))
 
         #contributions of given phrase / elements outside of given phrase made to hidden state
-        B = zeros((T, model.hidden_dim))
-        G = zeros((T, model.hidden_dim))
+        B = np.zeros((T, self.model.hidden_dim))
+        G = np.zeros((T, self.model.hidden_dim))
 
         #temp variables: prev_B = B_(t-1), prev_G = G_(t-1)
-        prev_B = zeros(model.hidden_dim)
-        prev_G = zeros(model.hidden_dim)
+        prev_B = np.zeros(self.model.hidden_dim)
+        prev_G = np.zeros(self.model.hidden_dim)
 
         #assume we have a way of write each of the gates in eq 2 3 4 as linear sum of contributions from each of their inputs
         #recursively compute the decomposition using linearizing activation functions: see section 3.2.1
@@ -117,28 +111,28 @@ class CD:
                 prev_B = B[i - 1]
                 prev_G = G[i - 1]
 
-            Bi = dot(Vi, prev_B)
-            Bg = dot(Vg, prev_B)
-            Bf = dot(Vf, prev_B)
-            Bo = dot(Vo, prev_B)
-            Gi = dot(Vi, prev_G)
-            Gg = dot(Vg, prev_G)
-            Gf = dot(Vf, prev_G)
-            Go = dot(Vo, prev_G)
+            Bi = np.dot(Vi, prev_B)
+            Bg = np.dot(Vg, prev_B)
+            Bf = np.dot(Vf, prev_B)
+            Bo = np.dot(Vo, prev_B)
+            Gi = np.dot(Vi, prev_G)
+            Gg = np.dot(Vg, prev_G)
+            Gf = np.dot(Vf, prev_G)
+            Go = np.dot(Vo, prev_G)
 
             #if the current time step is contained within the phrase, get what was let through
             if i >= start and i <= stop:
-                Bi = Bi + dot(Wi, word_embedding[i])
-                Bg = Bg + dot(Wg, word_embedding[i])
-                Bf = Bf + dot(Wf, word_embedding[i])
-                Bo = Bo + dot(Wo, word_embedding[i])
+                Bi = Bi + np.dot(Wi, word_embedding[i])
+                Bg = Bg + np.dot(Wg, word_embedding[i])
+                Bf = Bf + np.dot(Wf, word_embedding[i])
+                Bo = Bo + np.dot(Wo, word_embedding[i])
 
             #if the current time step is NOT contained in the phrase, get what was let though
             else:
-                Gi += dot(Wi, word_embedding[i])
-                Gg += dot(Wg, word_embedding[i])
-                Gf += dot(Wf, word_embedding[i])
-                Go += dot(Wo, word_embedding[i])
+                Gi += np.dot(Wi, word_embedding[i])
+                Gg += np.dot(Wg, word_embedding[i])
+                Gf += np.dot(Wf, word_embedding[i])
+                Go += np.dot(Wo, word_embedding[i])
 
             Bi_cont, Gi_cont, bi_cont = Lsig3(Bi, Gi, bi)
             Bg_cont, Gg_cont, bg_cont = Ltanh3(Bg, Gg, bg)
@@ -162,7 +156,7 @@ class CD:
                     Gc[i - 1] + Gf_cont * Bc[i - 1]
 
             o = sigmoid(
-                np.dot(Wo, word_embedding[i]) + dot(Vo, prev_B + prev_G) + bo)
+                np.dot(Wo, word_embedding[i]) + np.dot(Vo, prev_B + prev_G) + bo)
 
             Bo_cont, Go_cont, bo_cont = Lsig3(Bo, Go, bo)
             new_Bh, new_Gh = Ltanh2(Bc[i], Gc[i])
@@ -170,7 +164,7 @@ class CD:
             B[i] = o * new_Bh
             G[i] = o * new_Gh
 
-        scores = np.dot(model.hidden_to_label.weight.data, B[T - 1])
+        scores = np.dot(self.model.hidden_to_label.weight.data, B[T - 1])
         return scores[0] - scores[1]
 
     def CD_word(self, num):
@@ -184,7 +178,7 @@ class CD:
 
     def generate_dissenting(self, clf):
         self.dissenting = [i for i, val in enumerate(clf.decision_function(
-            vectorizer.transform(self.valid_data))) if abs(val) < 1.5]
+            self.vectorizer.transform(self.valid_data))) if abs(val) < 1.5]
 
     def splits_and_CD(self, idx):
         text = self.valid_data[idx]
@@ -209,7 +203,7 @@ class CD:
     def CD_subphrases(self, batch, start, end):
         text = []
         for i in batch.text:
-            text.append(inputs.vocab.itos[int(i)])
+            text.append(self.inputs.vocab.itos[int(i)])
         res_text = [
             (" ".join(text[0:start]), self.context_decomp(batch, 0, start - 1)),
             (" ".join(text[start:end + 1]), self.context_decomp(batch, start, end)),
@@ -224,7 +218,7 @@ def get_batches(batch_nums, train_iterator, dev_iterator, dset='train'):
     # pick data_iterator
     if dset == 'train':
         data_iterator = train_iterator
-    elif dset == 'dev':
+    elif dset == 'valid':
         data_iterator = dev_iterator
     
     # actually get batches
