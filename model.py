@@ -10,8 +10,6 @@ import torch.nn.functional as F
 import torch.optim as O
 import time
 
-torch.cuda.set_device(0)
-
 # initializing and training LSTM
 # reference from https://github.com/clairett/pytorch-sentiment-classification
 

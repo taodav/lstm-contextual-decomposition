@@ -107,13 +107,3 @@ def train_model(train_iter, valid_iter, inputs, outputs, args):
                                           i, len(train_iter),
                                           100. * (1 + i) / len(train_iter), loss.data[0], ' ' * 8, n_correct / n_total * 100, ' ' * 12))
     return model
-
-
-args = get_args()
-
-
-torch.cuda.set_device(0)
-inputs, outputs, train_iter, valid_iter, train, valid = load_sst(args)
-args["n_embed"] = len(inputs.vocab)
-args["d_out"] = len(outputs.vocab)
-model = train_model(train_iter, valid_iter, inputs, outputs, args)
