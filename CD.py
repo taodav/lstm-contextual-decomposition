@@ -10,6 +10,8 @@ from scipy.special import expit as sigmoid
 from numpy import *
 import random
 from scipy.special import expit as sigmoid
+from progress.bar import Bar
+
 
 
 def Lsig3(y1, y2, y3):
@@ -36,12 +38,13 @@ def Ltanh2(y1, y2):
   return y1_cont, y2_cont
 
 class CD:
-    def __init__(self, model, inputs, clf, data, vectorizer):
+    def __init__(self, model, inputs, clf, data, vectorizer, valid_data):
         self.model = model
         self.inputs = inputs
         self.data = data
+        self.valid_data = valid_data
         self.vectorizer = vectorizer
-        self.generate_data(data)
+        # self.generate_data(data)
         self.generate_dissenting(clf)
         self.clf = clf
 
@@ -55,22 +58,20 @@ class CD:
     def decomp_tanh_two(self, a, b):
         return 0.5 * (np.tanh(a) + (np.tanh(a + b) - np.tanh(b))), 0.5 * (np.tanh(b) + (np.tanh(a + b) - np.tanh(a)))
 
-    def generate_data(self, data):
-        valid_data = []
-        print("generating data")
-        for d in data.items():
-            df = d[1].text
-            text = []
-            # this is every batch
-            # for i in range(df.shape[1]):
-            #     text = []
-            #     for j in range(df[:, i].shape[0]):
-            #         if int(df[j, i]) != 1:
-            #             text.append(self.inputs.vocab.itos[int(df[j, i])])
-            #     valid_data.append(text)
-            for i in df:
-                text.append(self.inputs.vocab.itos[int(i)])
-        self.valid_data = valid_data
+    # def generate_data(self, data):
+        # valid_data = []
+        # print("generating data")
+        # for d in data.items():
+        #     df = d[1].text
+        #     text = []
+        #     # this is every batch
+        #     for i in range(df.shape[1]):
+        #         text = []
+        #         for j in range(df[:, i].shape[0]):
+        #             if int(df[j, i]) != 1:
+        #                 text.append(self.inputs.vocab.itos[int(df[j, i])])
+        #         valid_data.append(text)
+        # self.valid_data = valid_data
 
     #we want to return the CD score W*hc[T]
     def context_decomp(self, batch, start, stop):
@@ -167,21 +168,28 @@ class CD:
         scores = np.dot(self.model.hidden_to_label.weight.data, B[T - 1])
         return scores[0] - scores[1]
 
+    def grab_phrase(self, num):
+        text = []
+        for i in self.data[num].text:
+            text.append(self.inputs.vocab.itos[int(i)])
+        return text
+
     def CD_word(self, num):
         res = []
-        for i, word in enumerate(self.valid_data[num]):
+        text = self.grab_phrase(num)
+        for i, word in enumerate(text):
             rel_calc = self.context_decomp(self.data[num], i, i)
-            phrase = word
             print(rel_calc, word)
             res.append((rel_calc, word))
         return res
 
     def generate_dissenting(self, clf):
+        print("generating dissenting subphrases")
         self.dissenting = [i for i, val in enumerate(clf.decision_function(
             self.vectorizer.transform(self.valid_data))) if abs(val) < 1.5]
 
     def splits_and_CD(self, idx):
-        text = self.valid_data[idx]
+        text = self.grab_phrase(idx)
         commas = [i for i, v in enumerate(text) if v == ","] + [len(text)]
         splits = [(0, commas[0] - 1)]
         for i in range(len(commas) - 1):
@@ -190,10 +198,11 @@ class CD:
 
     def CD_phrase(self, num):
         splits = self.splits_and_CD(num)
+        text = self.grab_phrase(num)
         res = []
         for (i, j) in splits:
             rel_calc = self.context_decomp(self.data[num], i, j)
-            phrase = " ".join(self.valid_data[num][i:j + 1])
+            phrase = " ".join(text[i:j + 1])
             print(rel_calc, phrase)
             res.append((rel_calc, phrase))
         return res
@@ -225,6 +234,7 @@ def get_batches(batch_nums, train_iterator, dev_iterator, dset='train'):
     num = 0
     batches = {}
     data_iterator.init_epoch()
+    bar = Bar('Processing')
     for batch_idx, batch in enumerate(data_iterator):
         if batch_idx == batch_nums[num]:
             batches[batch_idx] = batch
@@ -235,6 +245,8 @@ def get_batches(batch_nums, train_iterator, dev_iterator, dset='train'):
         elif num == len(batch_nums):
             print('found them all')
             break
+        bar.next()
+    bar.finish()
     return batches
 
 

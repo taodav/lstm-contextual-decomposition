@@ -27,7 +27,7 @@ def load_sst_logistic_reg(args):
             text.vocab.load_vectors(args["word_vectors"])
             makedirs(os.path.dirname(args["vector_cache"]))
             torch.save(text.vocab.vectors, args["vector_cache"])
-        labels.build_vocab(train_v)
+    labels.build_vocab(train_v)
 
     # Next we build our datasets without all subtrees
     train, valid, test = datasets.SST.splits(text, labels, fine_grained=False, train_subtrees=True,

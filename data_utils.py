@@ -11,6 +11,7 @@ def get_args():
     BATCH_SIZE = 50
 
     config = {
+        "retrain": False,
         "epochs": EPOCHS,
         "batch_size": BATCH_SIZE,
         "gpu": 0,
@@ -53,10 +54,10 @@ def load_sst(args):
     labels = data.Field(sequential=False, unk_token=None)
 
     # we first build our dataset with all subtrees to build our vocab
-    train_v, valid_v, test_v = datasets.SST.splits(
+    train, valid, test = datasets.SST.splits(
         text, labels, train_subtrees=True, filter_pred=lambda ex: ex.label != 'neutral')
 
-    text.build_vocab(train_v, valid_v, test_v)
+    text.build_vocab(train, valid, test)
     if args["word_vectors"]:
         if os.path.isfile(args["vector_cache"]):
             text.vocab.vectors = torch.load(args["vector_cache"])
@@ -64,13 +65,14 @@ def load_sst(args):
             text.vocab.load_vectors(args["word_vectors"])
             makedirs(os.path.dirname(args["vector_cache"]))
             torch.save(text.vocab.vectors, args["vector_cache"])
-    labels.build_vocab(train_v)
+    labels.build_vocab(train)
 
     # Next we build our datasets without all subtrees
-    # train, valid, test = datasets.SST.splits(text, labels, fine_grained=False, train_subtrees=False,
-                                            #  filter_pred=lambda ex: ex.label != 'neutral')
+    if args["retrain"]:
+        train, valid, test = datasets.SST.splits(text, labels, fine_grained=False, train_subtrees=False,
+                                                filter_pred=lambda ex: ex.label != 'neutral')
 
     train_iter, valid_iter, test_iter = data.BucketIterator.splits(
-        (train_v, valid_v, test_v), batch_size=args["batch_size"], device=args["gpu"])
+        (train, valid, test), batch_size=args["batch_size"], device=args["gpu"])
 
-    return text, labels, train_iter, valid_iter, train_v, valid_v
+    return text, labels, train_iter, valid_iter, train, valid
