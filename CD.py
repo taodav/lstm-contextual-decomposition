@@ -10,7 +10,6 @@ from scipy.special import expit as sigmoid
 from numpy import *
 import random
 from scipy.special import expit as sigmoid
-from progress.bar import Bar
 
 
 
@@ -234,7 +233,6 @@ def get_batches(batch_nums, train_iterator, dev_iterator, dset='train'):
     num = 0
     batches = {}
     data_iterator.init_epoch()
-    bar = Bar('Processing')
     for batch_idx, batch in enumerate(data_iterator):
         if batch_idx == batch_nums[num]:
             batches[batch_idx] = batch
@@ -245,8 +243,6 @@ def get_batches(batch_nums, train_iterator, dev_iterator, dset='train'):
         elif num == len(batch_nums):
             print('found them all')
             break
-        bar.next()
-    bar.finish()
     return batches
 
 
