@@ -206,18 +206,34 @@ class CD:
             res.append((rel_calc, phrase))
         return res
 
+    def generate_score_tuple(self, batch, text, start, end):
+        return (" ".join(text[start:end]), self.context_decomp(batch, start, end - 1))
+
     # CD_subphrases takes in the index and start/end of dissenting subphrase within the sentence
     # returns an array of CD score before, of the phrase itself, and after
-    def CD_subphrases(self, batch, start, end):
+    def CD_diss_subphrases(self, batch, start, end):
         text = []
         for i in batch.text:
             text.append(self.inputs.vocab.itos[int(i)])
         res_text = [
-            (" ".join(text[0:start]), self.context_decomp(batch, 0, start - 1)),
-            (" ".join(text[start:end + 1]), self.context_decomp(batch, start, end)),
-            (" ".join(text[end + 1:]), self.context_decomp(batch, end + 1, len(text) - 1))
+            self.generate_score_tuple(batch, text, 0, start),
+            self.generate_score_tuple(batch, text, start, end + 1),
+            self.generate_score_tuple(batch, text, end + 1, len(text))
         ]
         return res_text
+
+    def CD_negating_subphrases(self, batch, first_start, first_end, second_start, second_end):
+        text = []
+        for i in batch.text:
+            text.append(self.inputs.vocab.itos[int(i)])
+        res_text = {
+            "negation_phrase": self.generate_score_tuple(batch, text, first_start, second_end + 1),
+            "negation_term": self.generate_score_tuple(batch, text, first_start, first_end),
+            "negated_phrase": self.generate_score_tuple(batch, text, second_start, second_end + 1),
+            "overall": self.generate_score_tuple(batch, text, 0, len(text))
+        }
+        return res_text
+
 
 
 def get_batches(batch_nums, train_iterator, dev_iterator, dset='train'):
