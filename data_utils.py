@@ -4,7 +4,7 @@ from torchtext import data, datasets
 from argparse import ArgumentParser
 
 def get_args():
-    EPOCHS = 12
+    EPOCHS = 6
     USE_GPU = torch.cuda.is_available()
     EMBEDDING_DIM = 300
     HIDDEN_DIM = 128
