@@ -47,16 +47,6 @@ class CD:
         self.generate_dissenting(clf)
         self.clf = clf
 
-    def decomp_three(self, a, b, c, activation):
-        a_contrib = 0.5 * (activation(a + c) - activation(c) +
-                           activation(a + b + c) - activation(b + c))
-        b_contrib = 0.5 * (activation(b + c) - activation(c) +
-                           activation(a + b + c) - activation(a + c))
-        return a_contrib, b_contrib, activation(c)
-
-    def decomp_tanh_two(self, a, b):
-        return 0.5 * (np.tanh(a) + (np.tanh(a + b) - np.tanh(b))), 0.5 * (np.tanh(b) + (np.tanh(a + b) - np.tanh(a)))
-
     # def generate_data(self, data):
         # valid_data = []
         # print("generating data")
