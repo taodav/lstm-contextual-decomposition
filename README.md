@@ -12,3 +12,5 @@ CD_demo.ipynb
 It should contain all scripts required to return all results we've managed to reproduce.
 
 In this, we find dissenting phrases as phrases with a confidence score below a certain threshold (1.5 in this case), which we have inferred from the paper (when they mention "absolute score of 1.5").
+
+Reference to reproducibility results in the paper labelled `final report 550.docx` in the report folder.
