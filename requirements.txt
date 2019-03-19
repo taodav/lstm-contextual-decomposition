@@ -48,7 +48,7 @@ nbconvert=5.3.1=py_1
 nbformat=4.4.0=py36_0
 networkx=2.1=py36_0
 nltk=3.2.5=py36h76d52bb_0
-notebook=5.4.0=py36_0
+notebook>=5.7.2
 numpy=1.14.2=py36_blas_openblas_200
 olefile=0.45.1=py36_0
 openblas=0.2.20=vc14_7
